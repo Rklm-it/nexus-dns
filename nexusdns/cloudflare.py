@@ -1,8 +1,7 @@
-"""A-записи DNS-сервера в Cloudflare: dns.домен и *.dns.домен → IP сервера.
+"""A-запись DNS-сервера в Cloudflare (необязательно: если домен там и дан токен).
 
-Звёздочка нужна Android: Частный DNS сперва резолвит `<ClientID>.dns.домен`
-обычным DNS сети, и без неё телефон не найдёт сервер. Облако серое:
-через прокси Cloudflare DoT (853) не ходит вовсе.
+Облако серое: через прокси Cloudflare DoT (853) не ходит вовсе, а 443 он
+расшифрует своим сертификатом.
 """
 
 from __future__ import annotations
@@ -71,7 +70,7 @@ class Cloudflare:
 def ensure_records(token: str, dns_domain: str, ip: str) -> list[str]:
     cf = Cloudflare(token)
     zone = cf.find_zone(dns_domain)
-    return [cf.upsert_a(zone["id"], name, ip) for name in (dns_domain, f"*.{dns_domain}")]
+    return [cf.upsert_a(zone["id"], dns_domain, ip)]
 
 
 def _json_or_text(raw: bytes) -> Any:

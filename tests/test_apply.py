@@ -11,7 +11,7 @@ from nexusdns.lists import BEGIN_MARK, Lists
 from .fake_agh import FakeAGH
 
 CFG = Config(dns_domain="dns.example.com", public_ip="203.0.113.7",
-             agh_user="admin", agh_password="x", selftest_id="tselftest1")
+             agh_user="admin", agh_password="x")
 
 
 def test_tls_rejected_cert_raises():
@@ -56,7 +56,7 @@ def test_apply_full_and_repeatable(monkeypatch, tmp_path):
     ap.apply(CFG, lists, agh, nginx=False)
     assert agh.user_rules == first
     assert first[0] == BEGIN_MARK and first[-1] == "||mine.com^"
-    assert agh.access["allowed_clients"] == ["tselftest1"]
+    assert agh.access["allowed_clients"] == []
     assert agh.configs["querylog"]["interval"] == ap.DAY_MS
 
 
@@ -101,5 +101,16 @@ def test_write_nginx_skips_when_unchanged(tmp_path):
 
 def test_no_per_ip_ratelimit():
     # Под VPN все пользователи ноды приходят с одного IP выхода: лимит по IP
-    # ронял бы DNS целой ноде. Чужих отсекает ClientID, а не лимит.
+    # ронял бы DNS целой ноде.
     assert ap.dns_settings()["ratelimit"] == 0
+
+
+def test_open_access_keeps_blacklist():
+    # Один адрес для всех: allowed_clients пуст (= пускать всех), но чёрный
+    # список, вписанный в панели руками, apply не стирает.
+    agh = FakeAGH()
+    agh.access = {"allowed_clients": ["old1234567"], "disallowed_clients": ["198.51.100.9"],
+                  "blocked_hosts": ["version.bind"]}
+    ap.open_access(agh)
+    assert agh.access == {"allowed_clients": [], "disallowed_clients": ["198.51.100.9"],
+                          "blocked_hosts": ["version.bind"]}

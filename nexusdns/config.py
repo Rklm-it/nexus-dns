@@ -39,7 +39,6 @@ class Config:
     public_ip: str
     agh_user: str
     agh_password: str
-    selftest_id: str
     agh_url: str = AGH_URL
     doh_port: int = DOH_PORT
 
@@ -48,7 +47,7 @@ class Config:
         if not path.exists():
             raise ConfigError(f"нет {path} — сервер ещё не установлен (install.sh)")
         env = parse_env(path.read_text(encoding="utf-8"))
-        need = ["DNS_DOMAIN", "PUBLIC_IP", "AGH_USER", "AGH_PASSWORD", "SELFTEST_ID"]
+        need = ["DNS_DOMAIN", "PUBLIC_IP", "AGH_USER", "AGH_PASSWORD"]
         missing = [k for k in need if not env.get(k)]
         if missing:
             raise ConfigError(f"в {path} не заданы: {', '.join(missing)}")
@@ -57,13 +56,10 @@ class Config:
             public_ip=env["PUBLIC_IP"],
             agh_user=env["AGH_USER"],
             agh_password=env["AGH_PASSWORD"],
-            selftest_id=env["SELFTEST_ID"],
             agh_url=env.get("AGH_URL") or AGH_URL,
             doh_port=int(env.get("DOH_PORT") or DOH_PORT),
         )
 
-    def dot_host(self, client_id: str) -> str:
-        return f"{client_id}.{self.dns_domain}"
-
-    def doh_url(self, client_id: str) -> str:
-        return f"https://{self.dns_domain}/dns-query/{client_id}"
+    @property
+    def doh_url(self) -> str:
+        return f"https://{self.dns_domain}/dns-query"

@@ -1,7 +1,7 @@
 """`nexus-dns status`: проверить сервер тем же путём, каким ходят телефоны.
 
 Не «процесс запущен», а запрос снаружи: на публичный IP, через nginx, с
-настоящим сертификатом и секретным адресом самопроверки.
+настоящим сертификатом.
 """
 
 from __future__ import annotations
@@ -107,8 +107,7 @@ def _try(title: str, fn, expect) -> Check:
 
 
 def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
-    ip, me = cfg.public_ip, cfg.dot_host(cfg.selftest_id)
-    path = f"/dns-query/{cfg.selftest_id}"
+    ip, host, path = cfg.public_ip, cfg.dns_domain, "/dns-query"
     checks: list[Check] = []
     if services:
         checks += [_service("AdGuardHome"), _service("nginx")]
@@ -117,8 +116,8 @@ def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
         rcode, addrs = result
         return (rcode == "NOERROR" and bool(addrs)), f"{rcode} {', '.join(addrs[:2])}"
 
-    checks.append(_try("DoH: обычный домен (example.com)", lambda: doh(ip, cfg.dns_domain, path, "example.com"), resolves))
-    checks.append(_try("DoT :853 (Android, Частный DNS)", lambda: dot(ip, me, "example.com"), resolves))
+    checks.append(_try("DoH: обычный домен (example.com)", lambda: doh(ip, host, path, "example.com"), resolves))
+    checks.append(_try("DoT :853 (Android, Частный DNS)", lambda: dot(ip, host, "example.com"), resolves))
 
     if lists.proxy:
         probe = lists.proxy[0]
@@ -131,8 +130,8 @@ def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
             rcode, addrs = result
             return not addrs, f"{rcode} {', '.join(addrs) or 'пусто'}"
 
-        checks.append(_try(f"прокси: {probe} → IP сервера", lambda: doh(ip, cfg.dns_domain, path, probe), to_us))
-        checks.append(_try(f"прокси: {probe} без IPv6", lambda: doh(ip, cfg.dns_domain, path, probe, "AAAA"), no_v6))
+        checks.append(_try(f"прокси: {probe} → IP сервера", lambda: doh(ip, host, path, probe), to_us))
+        checks.append(_try(f"прокси: {probe} без IPv6", lambda: doh(ip, host, path, probe, "AAAA"), no_v6))
 
         def handshake():
             with _tls(ip, 443, probe) as sock:
@@ -147,13 +146,7 @@ def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
             rcode, addrs = result
             return addrs in ([], ["0.0.0.0"]), f"{rcode} {', '.join(addrs) or 'пусто'}"
 
-        checks.append(_try(f"реклама: {target} заблокирован", lambda: doh(ip, cfg.dns_domain, path, target), blocked))
-
-    def refused(result):
-        rcode, _ = result
-        return rcode == "REFUSED", rcode
-
-    checks.append(_try("чужой без секретного адреса — отказ", lambda: doh(ip, cfg.dns_domain, "/dns-query", "example.com"), refused))
+        checks.append(_try(f"реклама: {target} заблокирован", lambda: doh(ip, host, path, target), blocked))
 
     try:
         days = cert_days_left(ip, cfg.dns_domain)

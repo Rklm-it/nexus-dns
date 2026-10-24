@@ -147,7 +147,7 @@ def merge_user_rules(current: list[str], ours: list[str]) -> list[str]:
 NGINX_TEMPLATE = """\
 # Сгенерировано `nexus-dns apply` — правки вручную пропадут.
 # Шлюз на 443: смотрит SNI и не расшифровывает трафик.
-#   {dns_domain} и *.{dns_domain}  -> DoH AdGuard Home (127.0.0.1:{doh_port})
+#   {dns_domain}                   -> DoH и панель AdGuard Home (127.0.0.1:{doh_port})
 #   домены из lists/proxy.txt      -> наружу, на настоящий сайт
 #   остальное                      -> сброс (иначе это открытый прокси для всех)
 stream {{

@@ -1,13 +1,10 @@
-"""AdGuard Home в памяти — ровно то, что трогают clients/apply."""
+"""AdGuard Home в памяти — ровно то, что трогает apply."""
 
 from typing import Any
-
-from nexusdns.agh import AGHError
 
 
 class FakeAGH:
     def __init__(self):
-        self.clients: list[dict[str, Any]] = []
         self.access = {"allowed_clients": [], "disallowed_clients": [], "blocked_hosts": []}
         self.filters: list[dict[str, Any]] = []
         self.user_rules: list[str] = []
@@ -17,8 +14,6 @@ class FakeAGH:
 
     def get(self, path):
         self.calls.append(("GET", path))
-        if path == "clients":
-            return {"clients": [dict(c) for c in self.clients]}
         if path == "access/list":
             return dict(self.access)
         if path == "filtering/status":
@@ -30,13 +25,7 @@ class FakeAGH:
     def post(self, path, body=None):
         self.calls.append(("POST", path))
         body = body or {}
-        if path == "clients/add":
-            if any(c["name"] == body["name"] for c in self.clients):
-                raise AGHError("client already exists")
-            self.clients.append(dict(body))
-        elif path == "clients/delete":
-            self.clients = [c for c in self.clients if c["name"] != body["name"]]
-        elif path == "access/set":
+        if path == "access/set":
             self.access = dict(body)
         elif path == "filtering/add_url":
             self.filters.append({"id": len(self.filters) + 1, "enabled": True, **body})

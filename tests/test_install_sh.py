@@ -56,3 +56,17 @@ def test_agh_web_bound_to_loopback():
     unit = (ROOT / "deploy" / "AdGuardHome.service").read_text(encoding="utf-8")
     assert "--web-addr 127.0.0.1:3000" in unit
     assert '\\"ip\\":\\"127.0.0.1\\",\\"port\\":3000' in TEXT
+
+
+def test_single_name_cert_without_registrar_api():
+    # Один общий адрес: сертификат на одно имя по HTTP-01, домен у любого
+    # регистратора. Wildcard и Cloudflare-плагин certbot больше не нужны.
+    assert "--webroot" in TEXT
+    assert "dns-cloudflare" not in TEXT
+    assert '*.$DNS_DOMAIN' not in TEXT
+    assert 'CF_API_TOKEN" ] || die' not in TEXT  # токен Cloudflare необязателен
+
+
+def test_nginx_default_site_removed():
+    # Стоковый сайт слушает [::]:80 — без IPv6 nginx с ним не стартует.
+    assert "rm -f /etc/nginx/sites-enabled/default" in TEXT

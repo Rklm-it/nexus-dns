@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .agh import AGH, AGHError
-from .clients import ensure_selftest, sync_access
 from .config import CERT_DIR, NGINX_CONF, Config
 from .lists import Lists, agh_rules, merge_user_rules, nginx_stream_conf
 
@@ -42,8 +41,8 @@ def dns_settings() -> dict[str, Any]:
         "cache_optimistic": True,
         # Лимита по IP нет: весь DoH приходит от nginx с 127.0.0.1, а DoT под
         # VPN — с одного IP выхода ноды на всех её пользователей. Лимит в
-        # 20 запросов/с на подсеть ронял бы DNS целой ноде. Чужих отсекает
-        # ClientID (REFUSED), а усилителя нет: снаружи только TCP (DoT/DoH).
+        # 20 запросов/с на подсеть ронял бы DNS целой ноде. Усилителя атак
+        # нет и без лимита: снаружи только TCP (DoT/DoH).
         "ratelimit": 0,
         "blocking_mode": "default",
         "dnssec_enabled": True,
@@ -113,6 +112,27 @@ def _update_config(agh: AGH, path: str, **changes: Any) -> None:
     agh.put(f"{path}/config/update", current)
 
 
+def open_access(agh: AGH) -> str:
+    """Один общий адрес для всех: пускаем любого.
+
+    Непустой allowed_clients сделал бы DNS закрытым для всех, кого там нет, а
+    устройств мы больше не заводим. Открытый DoT/DoH не годится в усилитель
+    DDoS (только TCP), обычный DNS на 53/5300 закрыт файрволом. Чёрный список
+    (disallowed_clients) и blocked_hosts, если их вписали в панели, сохраняем.
+    """
+    current = agh.get("access/list") or {}
+    agh.post(
+        "access/set",
+        {
+            "allowed_clients": [],
+            "disallowed_clients": current.get("disallowed_clients") or [],
+            "blocked_hosts": current.get("blocked_hosts")
+            or ["version.bind", "id.server", "hostname.bind"],
+        },
+    )
+    return "доступ: общий адрес, без регистрации устройств"
+
+
 def write_nginx(conf: str, path: Path = NGINX_CONF, run: Callable[..., Any] = subprocess.run) -> bool:
     """Записать конфиг шлюза, проверить `nginx -t`, перезагрузить.
 
@@ -164,9 +184,7 @@ def apply(cfg: Config, lists: Lists, agh: AGH, nginx: bool = True) -> list[str]:
     _update_config(agh, "querylog", enabled=True, interval=DAY_MS)
     _update_config(agh, "stats", enabled=True, interval=7 * DAY_MS)
 
-    ensure_selftest(agh, cfg)
-    allowed = sync_access(agh, cfg)
-    log.append(f"доступ: {len(allowed) - 1} устройств (+ самопроверка)")
+    log.append(open_access(agh))
 
     if nginx:
         changed = write_nginx(nginx_stream_conf(lists, cfg.dns_domain, cfg.doh_port))

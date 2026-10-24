@@ -2,8 +2,7 @@
 
   nexus-dns status                       проверить сервер снаружи
   nexus-dns apply                        применить lists/ и настройки
-  nexus-dns client add "Сын" --profile kids
-  nexus-dns client list | show ИМЯ | rm ИМЯ
+  nexus-dns howto                        что вписать на телефоне, роутере, в VPN
   nexus-dns lists check                  проверить lists/ (можно без сервера)
 """
 
@@ -48,24 +47,28 @@ def cmd_apply(args) -> int:
     return 0
 
 
-def cmd_client(args) -> int:
-    from . import clients
+HOWTO = """\
+Адрес один для всех — вписать один раз:
+
+  Android 9+   Настройки → Подключение и общий доступ (или «Сеть и интернет») →
+               Частный DNS → Имя хоста →   {domain}
+  iPhone, браузер, Windows 11 (DoH):      {doh}
+  Роутер:      DoT  tls://{domain}   или DoH-ссылка выше
+
+С VPN ничего менять не нужно: запросы к DNS идут внутри туннеля и доходят
+до сервера даже под белыми списками мобильного оператора.
+Под белыми списками БЕЗ VPN не работает ничего зарубежного, и наш DNS тоже:
+Android покажет «нет интернета», пока не включишь VPN или не уйдёшь на Wi-Fi.
+VPN под белыми списками должен знать свой сервер по IP, а не по домену:
+домен ему найти нечем, пока туннель не поднят (это настройка подписки).
+"""
+
+
+def cmd_howto(args) -> int:
     from .config import Config
 
     cfg = Config.load()
-    agh = _agh(cfg)
-    if args.action == "add":
-        body = clients.add_client(agh, cfg, args.name, args.profile)
-        print(clients.howto(cfg, body["name"], body["ids"][0], args.profile))
-    elif args.action == "list":
-        rows = clients.describe(clients.list_clients(agh))
-        print("\n".join(rows) if rows else "Устройств пока нет: nexus-dns client add ИМЯ")
-    elif args.action == "show":
-        c = clients.find_client(agh, args.name)
-        print(clients.howto(cfg, c["name"], c["ids"][0], clients.profile_of(c)))
-    elif args.action == "rm":
-        c = clients.remove_client(agh, cfg, args.name)
-        print(f"Удалено «{c['name']}»: его адрес больше не обслуживается.")
+    print(HOWTO.format(domain=cfg.dns_domain, doh=cfg.doh_url))
     return 0
 
 
@@ -89,6 +92,45 @@ def cmd_cloudflare(args) -> int:
     return 0
 
 
+def resolve_a(name: str, server: str, timeout: float = 4) -> list[str]:
+    """A-записи имени у публичного резолвера, мимо кэша системы."""
+    import socket
+
+    from . import dnswire
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(timeout)
+        sock.sendto(dnswire.build_query(name), (server, 53))
+        _, addrs = dnswire.parse_response(sock.recv(4096))
+    return addrs
+
+
+def cmd_wait_dns(args) -> int:
+    import time
+
+    deadline = time.monotonic() + args.timeout
+    told = False
+    while True:
+        seen: set[str] = set()
+        for server in ("1.1.1.1", "8.8.8.8"):
+            try:
+                seen.update(resolve_a(args.domain, server))
+            except OSError:
+                pass
+        if seen == {args.ip}:
+            print(f"  {args.domain} → {args.ip} ✓")
+            return 0
+        if not told:
+            print(f"  Жду A-запись у регистратора домена:  {args.domain}  →  {args.ip}")
+            print("  (тип A, без прокси/«оранжевого облака»; обычно расходится за 1–10 минут)")
+            told = True
+        if time.monotonic() > deadline:
+            now = ", ".join(sorted(seen)) or "нет записи"
+            print(f"  {args.domain} сейчас: {now} — а нужно {args.ip}", file=sys.stderr)
+            return 1
+        time.sleep(10)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="nexus-dns", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -101,20 +143,17 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--no-nginx", action="store_true", help="не трогать nginx")
     ap.set_defaults(fn=cmd_apply)
 
-    cp = sub.add_parser("client", help="устройства")
-    csub = cp.add_subparsers(dest="action", required=True)
-    add = csub.add_parser("add", help="новое устройство")
-    add.add_argument("name")
-    add.add_argument("--profile", default="family", choices=["family", "kids"])
-    csub.add_parser("list", help="все устройства")
-    for name, help_ in (("show", "адрес и инструкция"), ("rm", "удалить")):
-        x = csub.add_parser(name, help=help_)
-        x.add_argument("name", help="имя или ClientID")
-    cp.set_defaults(fn=cmd_client)
+    sub.add_parser("howto", help="что вписать на устройствах").set_defaults(fn=cmd_howto)
 
     lp = sub.add_parser("lists", help="списки доменов")
     lp.add_argument("action", choices=["check"])
     lp.set_defaults(fn=cmd_lists)
+
+    wd = sub.add_parser("wait-dns", help=argparse.SUPPRESS)
+    wd.add_argument("domain")
+    wd.add_argument("ip")
+    wd.add_argument("--timeout", type=int, default=900)
+    wd.set_defaults(fn=cmd_wait_dns)
 
     cf = sub.add_parser("cloudflare-records", help=argparse.SUPPRESS)
     cf.add_argument("domain")
