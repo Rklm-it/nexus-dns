@@ -70,3 +70,10 @@ def test_single_name_cert_without_registrar_api():
 def test_nginx_default_site_removed():
     # Стоковый сайт слушает [::]:80 — без IPv6 nginx с ним не стартует.
     assert "rm -f /etc/nginx/sites-enabled/default" in TEXT
+
+
+def test_ufw_opened_when_active():
+    # Включённый ufw закрывает 80/443/853 мимо нашей таблицы nftables.
+    assert 'ufw status 2>/dev/null | grep -q "Status: active"' in TEXT
+    for rule in ("80/tcp", "443/tcp", "853/tcp", "853/udp"):
+        assert rule in TEXT

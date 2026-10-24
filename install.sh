@@ -144,6 +144,13 @@ install -m 644 "$REPO_DIR/deploy/nexus-dns-firewall.service" /etc/systemd/system
 systemctl daemon-reload
 systemctl enable nexus-dns-firewall.service >/dev/null
 systemctl restart nexus-dns-firewall.service
+# ufw (есть в образах многих хостеров) свои запреты держит в отдельной
+# таблице, и наша их не отменяет: включённый ufw закроет 80/443/853, и
+# Let's Encrypt не выдаст сертификат. Открываем только нужное.
+if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+    for rule in 80/tcp 443/tcp 853/tcp 853/udp; do ufw allow "$rule" >/dev/null; done
+    echo "ufw включён — открыл 80/tcp, 443/tcp, 853/tcp, 853/udp"
+fi
 
 # ---------------------------------------------------------------------------
 step "адрес $DNS_DOMAIN → $PUBLIC_IP"
