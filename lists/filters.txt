@@ -11,3 +11,10 @@ https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.oppo
 https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.xiaomi.txt
 https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.samsung.txt
 https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.huawei.txt
+
+# Российская реклама и счётчики (RU AdList). Браузерные списки: AdGuard Home берёт
+# из них только правила для доменов. Проверено 25.10.2026 на копии сервера: +5 600
+# рекламных доменов, +199 счётчиков; из 107 крупных российских сайтов (банки,
+# Госуслуги, маркетплейсы, VK, Яндекс, MAX) не задет ни один.
+https://easylist-downloads.adblockplus.org/advblock.txt
+https://easylist-downloads.adblockplus.org/cntblock.txt

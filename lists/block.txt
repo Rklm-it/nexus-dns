@@ -51,3 +51,9 @@ an.yandex.ru
 yandexadexchange.net
 adfox.ru
 ad.mail.ru
+
+# Российская реклама на сайтах, которую RU AdList режет только в браузере (по пути),
+# а DNS-списки пропускают: сервер Яндекс Директа, картинки myTarget, реклама Рамблера
+yabs.yandex.ru
+r.mradx.net
+ssp.rambler.ru
