@@ -9,7 +9,11 @@
 # в журнале AdGuard Home, к каким ещё доменам он ходит, и добавляй сюда.
 # Применить: nexus-dns apply
 
-# Gemini, AI Studio, NotebookLM
+# Gemini, AI Studio, NotebookLM, Jules, Antigravity. Сверено со списком «Google AI»
+# podkop (itdoginfo/allow-domains, Services/google_ai.lst), кроме clients6.google.com
+# целиком: это все API Google, и через сервер ушло бы лишнее — здесь только поддомены
+# Gemini. Выход VPN-ноды Google часто режет 429 («У Gemini сейчас перерыв»), а чистый
+# IP этого сервера — нет: Gemini лучше снять с VPN и отдать сюда.
 gemini.google.com
 gemini.google
 aistudio.google.com
@@ -28,6 +32,20 @@ notebooklm.google.com
 notebooklm.google
 labs.google
 deepmind.google
+deepmind.com
+generativeai.google
+bard.google.com
+jules.google
+jules.google.com
+stitch.withgoogle.com
+antigravity.google
+antigravity.googleapis.com
+antigravity-pa.googleapis.com
+antigravity-unleash.goog
+aida.googleapis.com
+speechs3proto2-pa.googleapis.com
+signaler-pa.clients6.google.com
+firebaseinstallations.googleapis.com
 
 # ChatGPT
 chatgpt.com
