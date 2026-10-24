@@ -1,0 +1,19 @@
+# Файрвол nexus-dns: своя таблица, чужие правила и политику не трогает
+# (SSH и всё остальное открыто как было). Только закрывает лишнее.
+# Две первые строки — чтобы повторная загрузка не дублировала правила.
+table inet nexus_dns
+delete table inet nexus_dns
+
+table inet nexus_dns {
+    chain input {
+        type filter hook input priority filter - 10; policy accept;
+        iif "lo" accept
+        # Открытый всем DNS = усилитель DDoS-атак, хостер за это банит.
+        # Обычный DNS AdGuard Home (5300), панель (3000) и его HTTPS (8443) —
+        # только изнутри. Снаружи: 443 (nginx), 853 (DoT/DoQ).
+        tcp dport { 53, 3000, 5300, 8443 } drop
+        udp dport { 53, 5300 } drop
+        # QUIC на домены из прокси: отказ сразу, и браузер без паузы идёт по TCP.
+        udp dport 443 reject
+    }
+}

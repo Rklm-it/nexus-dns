@@ -1,0 +1,48 @@
+# Домены, которые идут через сервер: DNS отдаёт на них IP сервера, а nginx
+# по SNI пропускает соединение к настоящему сайту. Сайт видит IP сервера,
+# а не российский.
+#
+# Помогает тем, кто сам не пускает из РФ (Gemini, ChatGPT, Claude…).
+# НЕ помогает тому, что режет ТСПУ (YouTube, Instagram): прокси не шифрует.
+#
+# Строка = домен со всеми поддоменами. Сайт открылся не полностью — смотри
+# в журнале AdGuard Home, к каким ещё доменам он ходит, и добавляй сюда.
+# Применить: nexus-dns apply
+
+# Gemini, AI Studio, NotebookLM
+gemini.google.com
+gemini.google
+aistudio.google.com
+ai.google.dev
+makersuite.google.com
+generativelanguage.googleapis.com
+alkalimakersuite-pa.clients6.google.com
+webchannel-alkalimakersuite-pa.clients6.google.com
+waa-pa.clients6.google.com
+proactivebackend-pa.googleapis.com
+robinfrontend-pa.googleapis.com
+assistant-s3-pa.googleapis.com
+geller-pa.googleapis.com
+aisandbox-pa.googleapis.com
+notebooklm.google.com
+notebooklm.google
+labs.google
+deepmind.google
+
+# ChatGPT
+chatgpt.com
+openai.com
+oaistatic.com
+oaiusercontent.com
+sora.com
+
+# Claude
+claude.ai
+claude.com
+anthropic.com
+claudeusercontent.com
+
+# Copilot, Grok
+copilot.microsoft.com
+grok.com
+x.ai

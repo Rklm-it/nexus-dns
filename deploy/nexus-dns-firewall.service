@@ -1,0 +1,14 @@
+[Unit]
+Description=nexus-dns firewall (nftables table inet nexus_dns)
+# nftables.service на Debian делает flush ruleset — грузимся после него.
+After=nftables.service network-pre.target
+Before=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nexus-dns/firewall.nft
+ExecStop=/usr/sbin/nft delete table inet nexus_dns
+
+[Install]
+WantedBy=multi-user.target

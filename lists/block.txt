@@ -1,0 +1,53 @@
+# Рекламные сети мобильных игр и приложений — блокируются у всех.
+# Большая часть уже есть в HaGeZi Pro (filters.txt), здесь — гарантия на
+# случай, если список что-то выкинет, и то, чего в нём нет.
+#
+# Игра без рекламы обычно просто пропускает показ. Но бонус «посмотри
+# рекламу — получи монеты» без рекламы не выдаётся: это не поломка DNS.
+# Применить: nexus-dns apply
+
+# Google AdMob
+googleads.g.doubleclick.net
+pagead2.googlesyndication.com
+googleadservices.com
+
+# Unity Ads
+unityads.unity3d.com
+
+# AppLovin (MAX)
+applovin.com
+applvn.com
+
+# ironSource / LevelPlay
+ironsrc.mobi
+ironsrc.com
+supersonicads.com
+
+# Mintegral
+mtgglobals.com
+rayjump.com
+mintegral.net
+
+# Pangle (реклама TikTok)
+pangle.io
+pangleglobal.com
+
+# Vungle / Liftoff
+vungle.com
+liftoff.io
+
+# InMobi, Chartboost, AdColony, Fyber, BidMachine
+inmobi.com
+chartboost.com
+adcolony.com
+fyber.com
+bidmachine.io
+
+# Meta Audience Network
+an.facebook.com
+
+# Yandex Mobile Ads, myTarget — частые в российских играх
+an.yandex.ru
+yandexadexchange.net
+adfox.ru
+ad.mail.ru

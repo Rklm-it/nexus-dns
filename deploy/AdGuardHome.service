@@ -1,0 +1,16 @@
+[Unit]
+Description=AdGuard Home (nexus-dns)
+After=network-online.target nexus-dns-firewall.service
+Wants=network-online.target
+
+[Service]
+# --web-addr: панель и мастер первого запуска только на 127.0.0.1 — мастер
+# без пароля на внешнем адресе настроил бы сервер первый, кто зайдёт.
+# Снаружи панель доступна через nginx: https://<DNS_DOMAIN>/ с паролем.
+ExecStart=/opt/AdGuardHome/AdGuardHome -w /opt/AdGuardHome -c /opt/AdGuardHome/AdGuardHome.yaml --no-check-update --web-addr 127.0.0.1:3000
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

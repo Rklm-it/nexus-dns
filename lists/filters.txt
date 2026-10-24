@@ -1,0 +1,13 @@
+# Блок-листы, которые AdGuard Home скачивает и обновляет сам раз в сутки.
+# Удалишь строку — `nexus-dns apply` уберёт и список (только наши, с
+# пометкой «nexus:»; списки, добавленные руками в AdGuard Home, не трогаем).
+
+# Основной: реклама и трекеры, сбалансированный — сайты не ломает
+https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
+
+# Реклама и слежка самих телефонов (оболочки производителей)
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.oppo-realme.txt
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.xiaomi.txt
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.samsung.txt
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.huawei.txt
