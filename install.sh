@@ -61,6 +61,10 @@ ask() { # ask VAR "вопрос" [по умолчанию] [secret]
 
 fetch() { curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 "$@"; }
 
+# timeout без --foreground уводит команду из терминала: всё, что она захочет
+# спросить (needrestart, debconf), молча замирает до конца таймаута.
+tmo() { timeout --foreground "$@"; }
+
 # ---------------------------------------------------------------------------
 step "проверка системы"
 [ "$(id -u)" = 0 ] || die "нужен root: sudo $0"
@@ -123,9 +127,13 @@ fi
 
 # ---------------------------------------------------------------------------
 step "пакеты"
-export DEBIAN_FRONTEND=noninteractive
-timeout 600 apt-get update -q
-if ! timeout 900 apt-get install -y -q nginx libnginx-mod-stream certbot \
+# needrestart (Ubuntu 22.04+) после установки спрашивает, какие службы
+# перезапустить, а dpkg — что делать с изменённым конфигом. Под curl|bash и
+# под timeout такой вопрос не видно, и установка молча висит. Отвечаем сами.
+export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a NEEDRESTART_SUSPEND=1
+APT_OPTS=(-y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+tmo 600 apt-get update -q
+if ! tmo 900 apt-get install "${APT_OPTS[@]}" nginx libnginx-mod-stream certbot \
     python3 curl ca-certificates openssl nftables iproute2; then
     # Без IPv6 стоковый сайт nginx (listen [::]:80) не стартует, и dpkg не
     # доустанавливает пакет. Сайт нам не нужен — убираем и доустанавливаем.
@@ -185,7 +193,7 @@ systemctl restart nginx
 step "сертификат Let's Encrypt на $DNS_DOMAIN"
 chmod +x "$REPO_DIR/deploy/certbot-deploy-hook.sh"
 if [ -n "$ACME_EMAIL" ]; then email_args=(-m "$ACME_EMAIL"); else email_args=(--register-unsafely-without-email); fi
-timeout 600 certbot certonly --non-interactive --agree-tos "${email_args[@]}" \
+tmo 600 certbot certonly --non-interactive --agree-tos "${email_args[@]}" \
     --webroot -w "$ACME_ROOT" --cert-name "$CERT_NAME" -d "$DNS_DOMAIN" \
     --keep-until-expiring --deploy-hook "$REPO_DIR/deploy/certbot-deploy-hook.sh" \
     || die "Let's Encrypt не выдал сертификат: порт 80 сервера должен быть открыт снаружи (файрвол хостера?)"

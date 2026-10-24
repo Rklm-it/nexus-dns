@@ -77,3 +77,13 @@ def test_ufw_opened_when_active():
     assert 'ufw status 2>/dev/null | grep -q "Status: active"' in TEXT
     for rule in ("80/tcp", "443/tcp", "853/tcp", "853/udp"):
         assert rule in TEXT
+
+
+def test_timeout_keeps_terminal():
+    # timeout без --foreground уводит команду из терминала: needrestart или
+    # debconf, решив что-то спросить, молча висят до конца таймаута.
+    # Воспроизведено в псевдотерминале.
+    for ln in _code_lines():
+        if re.search(r"(?:^|[\s(;|&!])timeout\s", ln):
+            assert "--foreground" in ln, ln
+    assert "NEEDRESTART_MODE=a" in TEXT and "--force-confold" in TEXT
