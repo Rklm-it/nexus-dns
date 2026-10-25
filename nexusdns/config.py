@@ -8,7 +8,11 @@ from pathlib import Path
 
 ENV_FILE = Path(os.environ.get("NEXUS_DNS_ENV", "/etc/nexus-dns/nexus-dns.env"))
 NGINX_CONF = Path(os.environ.get("NEXUS_DNS_NGINX_CONF", "/etc/nginx/nexus-dns/stream.conf"))
+NGINX_SITE_CONF = Path(os.environ.get("NEXUS_DNS_NGINX_SITE", "/etc/nginx/conf.d/nexus-dns-site.conf"))
 CERT_DIR = Path("/etc/letsencrypt/live/nexus-dns")
+SITE_ROOT = Path(os.environ.get("NEXUS_DNS_SITE_ROOT", "/var/lib/nexus-dns/site"))
+# Локальные списки AdGuard Home берёт только отсюда (filtering.safe_fs_patterns).
+USERFILTERS = Path(os.environ.get("NEXUS_DNS_USERFILTERS", "/opt/AdGuardHome/userfilters"))
 
 AGH_URL = "http://127.0.0.1:3000"
 DOH_PORT = 8443  # HTTPS AdGuard Home на 127.0.0.1, снаружи — через nginx на 443

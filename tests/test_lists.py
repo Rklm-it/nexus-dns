@@ -75,26 +75,29 @@ def test_proxy_list_same_in_dns_and_nginx(lists):
     """Один список рождает два конфига. Домен, который DNS ведёт на сервер,
     а nginx не пропускает, — тихо мёртвый сайт: это и сторожим."""
     rules = agh_rules(lists, IP)
-    conf = nginx_stream_conf(lists, DOMAIN, 8443)
+    conf = nginx_stream_conf(lists, DOMAIN)
     in_dns = {m.group(1) for r in rules if (m := re.match(rf"\|\|(.+)\^\$dnsrewrite={re.escape(IP)}$", r))}
-    in_nginx = set(re.findall(r"^\s+\.(\S+) \$ssl_preread_server_name:443;$", conf, re.M))
+    in_nginx = set(re.findall(r"^\s+\.(\S+) 127\.0\.0\.1:8446;$", conf, re.M))
     assert in_dns == in_nginx == set(lists.proxy)
 
 
 def test_nginx_map_has_no_duplicate_keys(lists):
-    conf = nginx_stream_conf(lists, DOMAIN, 8443)
+    conf = nginx_stream_conf(lists, DOMAIN)
     keys = re.findall(r"^\s+(\.?[a-z0-9.-]+) \S+;$", conf, re.M)
     bare = [k.lstrip(".") for k in keys]
     # «dns.example.com» и «.dns.example.com» вместе nginx не принимает.
     assert len(bare) == len(set(bare))
-    assert f".{DOMAIN} 127.0.0.1:8443;" in conf
+    assert f".{DOMAIN} 127.0.0.1:8444;" in conf
+    # PROXY protocol снимает только внутренний сервер — на сам сайт его не шлём.
+    assert "listen 127.0.0.1:8446 proxy_protocol;" in conf
+    assert "proxy_pass $ssl_preread_server_name:443;" in conf
 
 
 @pytest.mark.skipif(not shutil.which("nginx"), reason="нет nginx")
 def test_nginx_accepts_rendered_conf(lists, tmp_path):
     modules = Path("/usr/lib/nginx/modules/ngx_stream_module.so")
     stream = tmp_path / "stream.conf"
-    stream.write_text(nginx_stream_conf(lists, DOMAIN, 8443), encoding="utf-8")
+    stream.write_text(nginx_stream_conf(lists, DOMAIN), encoding="utf-8")
     main = tmp_path / "nginx.conf"
     load = f"load_module {modules};\n" if modules.exists() else ""
     main.write_text(

@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .agh import AGH, AGHError
-from .config import CERT_DIR, NGINX_CONF, Config
+from .config import CERT_DIR, NGINX_CONF, NGINX_SITE_CONF, SITE_ROOT, USERFILTERS, Config
 from .lists import Lists, agh_rules, merge_user_rules, nginx_stream_conf
+from .site import nginx_site_conf, write_site
 
 FILTER_PREFIX = "nexus: "
 
@@ -29,6 +30,12 @@ DAY_MS = 24 * 3600 * 1000
 def filter_name(url: str) -> str:
     tail = url.rstrip("/").rsplit("/", 2)
     return FILTER_PREFIX + "/".join(tail[-2:])
+
+
+def local_filters(userfilters: Path | None = None) -> list[str]:
+    """Списки, собранные `lists build` (AdGuard Home берёт их по пути к файлу)."""
+    userfilters = userfilters or USERFILTERS
+    return sorted(str(p) for p in userfilters.glob("nexus-*.txt")) if userfilters.is_dir() else []
 
 
 def dns_settings() -> dict[str, Any]:
@@ -133,23 +140,25 @@ def open_access(agh: AGH) -> str:
     return "доступ: общий адрес, без регистрации устройств"
 
 
-def write_nginx(conf: str, path: Path = NGINX_CONF, run: Callable[..., Any] = subprocess.run) -> bool:
-    """Записать конфиг шлюза, проверить `nginx -t`, перезагрузить.
+def write_nginx(confs: dict[Path, str], run: Callable[..., Any] = subprocess.run) -> bool:
+    """Записать конфиги nginx, проверить `nginx -t`, перезагрузить.
 
-    Не прошёл проверку — вернуть прежний файл: сломанный nginx на 443 = DNS
-    лёг у всех. Возвращает True, если файл изменился.
+    Не прошли проверку — вернуть прежние файлы все разом: сломанный nginx на
+    443 = DNS лёг у всех. Возвращает True, если что-то изменилось.
     """
-    old = path.read_text(encoding="utf-8") if path.exists() else None
-    if old == conf:
+    old = {p: (p.read_text(encoding="utf-8") if p.exists() else None) for p in confs}
+    if all(old[p] == c for p, c in confs.items()):
         return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(conf, encoding="utf-8")
+    for p, c in confs.items():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(c, encoding="utf-8")
     test = run(["nginx", "-t"], capture_output=True, text=True)
     if test.returncode != 0:
-        if old is None:
-            path.unlink()
-        else:
-            path.write_text(old, encoding="utf-8")
+        for p, prev in old.items():
+            if prev is None:
+                p.unlink(missing_ok=True)
+            else:
+                p.write_text(prev, encoding="utf-8")
         raise RuntimeError(f"nginx -t не принял конфиг, вернул прежний:\n{test.stderr.strip()}")
     reload = run(["systemctl", "reload", "nginx"], capture_output=True, text=True)
     if reload.returncode != 0:
@@ -171,7 +180,7 @@ def apply(cfg: Config, lists: Lists, agh: AGH, nginx: bool = True) -> list[str]:
 
     agh.post("filtering/config", {"enabled": True, "interval": 24})
     agh.post("safebrowsing/enable")
-    log += sync_filters(agh, lists.filters)
+    log += sync_filters(agh, lists.filters + local_filters())
 
     current_rules = (agh.get("filtering/status") or {}).get("user_rules") or []
     rules = merge_user_rules(current_rules, agh_rules(lists, cfg.public_ip))
@@ -186,7 +195,14 @@ def apply(cfg: Config, lists: Lists, agh: AGH, nginx: bool = True) -> list[str]:
 
     log.append(open_access(agh))
 
+    changed_site = write_site(cfg, SITE_ROOT)
+    if changed_site:
+        log.append(f"сайт: {', '.join(changed_site)}")
+
     if nginx:
-        changed = write_nginx(nginx_stream_conf(lists, cfg.dns_domain, cfg.doh_port))
+        changed = write_nginx({
+            NGINX_CONF: nginx_stream_conf(lists, cfg.dns_domain),
+            NGINX_SITE_CONF: nginx_site_conf(cfg, CERT_DIR, SITE_ROOT),
+        })
         log.append("nginx: шлюз обновлён" if changed else "nginx: без изменений")
     return log

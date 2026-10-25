@@ -4,6 +4,8 @@
   nexus-dns apply                        применить lists/ и настройки
   nexus-dns howto                        что вписать на телефоне, роутере, в VPN
   nexus-dns lists check                  проверить lists/ (можно без сервера)
+  nexus-dns lists build                  собрать российские правила и список для podkop
+  nexus-dns update                       git pull + lists build + apply (раз в сутки таймером)
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ def cmd_status(args) -> int:
     from .lists import Lists
 
     cfg = Config.load()
-    checks = selfcheck.run(cfg, Lists.load())
+    checks = selfcheck.run(cfg, Lists.load(), agh=_agh(cfg))
     for c in checks:
         mark = "\033[32m✓\033[0m" if c.ok else "\033[31m✗\033[0m"
         print(f" {mark} {c.title:<52} {c.detail}")
@@ -48,12 +50,16 @@ def cmd_apply(args) -> int:
 
 
 HOWTO = """\
-Адрес один для всех — вписать один раз:
+Адрес один для всех — вписать один раз. Всё ниже есть на странице:
+  https://{domain}/
 
   Android 9+   Настройки → Подключение и общий доступ (или «Сеть и интернет») →
                Частный DNS → Имя хоста →   {domain}
-  iPhone, браузер, Windows 11 (DoH):      {doh}
+  iPhone/Mac   https://{domain}/nexus-dns.mobileconfig → Настройки → Профиль загружен
+  Браузер, Windows 11 (DoH):              {doh}
   Роутер:      DoT  tls://{domain}   или DoH-ссылка выше
+  Podkop:      DNS — DoT {domain}; секция с типом Block → «Внешние списки доменов» →
+               https://{domain}/podkop-block.txt  (реклама внутри VPN-списков podkop)
 
 С VPN ничего менять не нужно: запросы к DNS идут внутри туннеля и доходят
 до сервера даже под белыми списками мобильного оператора.
@@ -75,9 +81,43 @@ def cmd_howto(args) -> int:
 def cmd_lists(args) -> int:
     from .lists import Lists
 
+    if args.action == "build":
+        from .build import build
+        from .config import SITE_ROOT, USERFILTERS
+
+        for line in build(USERFILTERS, SITE_ROOT):
+            print(" ", line)
+        return 0
     lists = Lists.load()
     print(f"proxy {len(lists.proxy)}, block {len(lists.block)}, allow {len(lists.allow)}, filters {len(lists.filters)} — ок")
     return 0
+
+
+def cmd_update(args) -> int:
+    """Раз в сутки (nexus-dns-update.timer): правка в main доезжает до всех серверов.
+
+    Каждый шаг сам по себе: не скачался чужой список — остаются вчерашние
+    файлы, и apply всё равно идёт. Падает только apply: его ошибку видно в
+    `systemctl status nexus-dns-update`.
+    """
+    import subprocess
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    pull = subprocess.run(["git", "-C", str(repo), "pull", "--ff-only", "-q"],
+                          capture_output=True, text=True)
+    print("  git pull:", "ок" if pull.returncode == 0 else f"не вышло — {pull.stderr.strip()}")
+    try:
+        from .build import build
+        from .config import SITE_ROOT, USERFILTERS
+
+        for line in build(USERFILTERS, SITE_ROOT):
+            print(" ", line)
+    except Exception as e:  # noqa: BLE001 — остаются вчерашние списки
+        print(f"  ! сборка списков не вышла, остаются прежние: {e}")
+    # apply — новым кодом из git pull, а не тем, что уже загружен в память.
+    return subprocess.run([sys.executable, "-m", "nexusdns", "apply"], cwd=repo,
+                          env={**os.environ, "PYTHONPATH": str(repo)}).returncode
 
 
 def cmd_cloudflare(args) -> int:
@@ -144,9 +184,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.set_defaults(fn=cmd_apply)
 
     sub.add_parser("howto", help="что вписать на устройствах").set_defaults(fn=cmd_howto)
+    sub.add_parser("update", help="git pull + lists build + apply").set_defaults(fn=cmd_update)
 
     lp = sub.add_parser("lists", help="списки доменов")
-    lp.add_argument("action", choices=["check"])
+    lp.add_argument("action", choices=["check", "build"])
     lp.set_defaults(fn=cmd_lists)
 
     wd = sub.add_parser("wait-dns", help=argparse.SUPPRESS)

@@ -147,27 +147,39 @@ def merge_user_rules(current: list[str], ours: list[str]) -> list[str]:
 NGINX_TEMPLATE = """\
 # Сгенерировано `nexus-dns apply` — правки вручную пропадут.
 # Шлюз на 443: смотрит SNI и не расшифровывает трафик.
-#   {dns_domain}                   -> DoH и панель AdGuard Home (127.0.0.1:{doh_port})
-#   домены из lists/proxy.txt      -> наружу, на настоящий сайт
-#   остальное                      -> сброс (иначе это открытый прокси для всех)
+#   {dns_domain}             -> сайт и DoH (nginx http, {site_port}), панель на /admin/
+#   домены из lists/proxy.txt -> внутренний прокси ({relay_port}) -> настоящий сайт
+#   остальное                -> сброс (иначе это открытый прокси для всех)
+# PROXY protocol на всех внутренних переходах: без него DoH видел бы
+# 127.0.0.1 вместо адреса человека. На сам сайт (Gemini…) он не уходит —
+# второй сервер его снимает.
 stream {{
     map $ssl_preread_server_name $nexus_dns_upstream {{
         hostnames;
         default 127.0.0.1:9;
         # «.домен» с hostnames — сам домен и все поддомены; отдельная строка
         # для голого домена nginx считает конфликтом и не стартует.
-        .{dns_domain} 127.0.0.1:{doh_port};
+        .{dns_domain} 127.0.0.1:{site_port};
 {proxy_lines}
     }}
 
     server {{
         listen 443;
         ssl_preread on;
+        proxy_pass $nexus_dns_upstream;
+        proxy_protocol on;
+        proxy_connect_timeout 10s;
+        proxy_timeout 15m;
+    }}
+
+    server {{
+        listen 127.0.0.1:{relay_port} proxy_protocol;
+        ssl_preread on;
         # Не наш AdGuard: он вернёт на домен из прокси наш же IP, и nginx
         # отправит соединение сам в себя.
         resolver {resolvers} ipv6=off valid=300s;
         resolver_timeout 5s;
-        proxy_pass $nexus_dns_upstream;
+        proxy_pass $ssl_preread_server_name:443;
         proxy_connect_timeout 10s;
         proxy_timeout 15m;
     }}
@@ -175,15 +187,16 @@ stream {{
 """
 
 NGINX_RESOLVERS = ("1.1.1.1", "8.8.8.8")
+SITE_PORT = 8444
+RELAY_PORT = 8446
 
 
-def nginx_stream_conf(lists: Lists, dns_domain: str, doh_port: int) -> str:
-    proxy_lines = "\n".join(
-        f"        .{d} $ssl_preread_server_name:443;" for d in lists.proxy
-    )
+def nginx_stream_conf(lists: Lists, dns_domain: str) -> str:
+    proxy_lines = "\n".join(f"        .{d} 127.0.0.1:{RELAY_PORT};" for d in lists.proxy)
     return NGINX_TEMPLATE.format(
         dns_domain=dns_domain,
-        doh_port=doh_port,
+        site_port=SITE_PORT,
+        relay_port=RELAY_PORT,
         proxy_lines=proxy_lines,
         resolvers=" ".join(NGINX_RESOLVERS),
     )

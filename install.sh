@@ -78,6 +78,17 @@ esac
 mkdir -p "$ENV_DIR"
 chmod 700 "$ENV_DIR"
 
+# Обновления берём из main: сервер, поставленный из рабочей ветки, переводим на
+# неё один раз. Не вышло (нет сети, правки руками) — ставим из того, что есть.
+branch="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [ -n "$branch" ] && [ "$branch" != main ]; then
+    if git -C "$REPO_DIR" fetch -q origin main 2>/dev/null && git -C "$REPO_DIR" checkout -q main 2>/dev/null; then
+        echo "код: перешёл на ветку main (была $branch)"
+    else
+        echo "! код остаётся на ветке $branch: перейти на main не вышло"
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 step "настройки"
 DNS_DOMAIN="${DNS_DOMAIN:-$(envget DNS_DOMAIN)}"
@@ -89,9 +100,14 @@ if [ -z "$PUBLIC_IP" ]; then
     PUBLIC_IP="$(curl -4 -fsS --connect-timeout 5 --max-time 10 https://api.ipify.org 2>/dev/null \
         || curl -4 -fsS --connect-timeout 5 --max-time 10 https://ifconfig.me/ip 2>/dev/null || true)"
 fi
+FIRST_INSTALL=1; [ -f "$ENV_FILE" ] && FIRST_INSTALL=0
 ask DNS_DOMAIN "Адрес DNS-сервера (домен или поддомен, напр. dns.example.com)"
-ask CF_API_TOKEN "Токен Cloudflare, если домен там (Enter — пропустить, запись впишешь сам)" "" secret
-ask ACME_EMAIL "Почта для Let's Encrypt (можно пусто)"
+# Необязательное спрашиваем только при первой установке: пустой ответ не
+# сохраняется, и обновление задавало бы те же вопросы каждый раз.
+if [ "$FIRST_INSTALL" = 1 ]; then
+    ask CF_API_TOKEN "Токен Cloudflare, если домен там (Enter — пропустить, запись впишешь сам)" "" secret
+    ask ACME_EMAIL "Почта для Let's Encrypt (можно пусто)"
+fi
 ask PUBLIC_IP "Публичный IPv4 сервера" "$PUBLIC_IP"
 
 DNS_DOMAIN="$(printf '%s' "$DNS_DOMAIN" | tr 'A-Z' 'a-z')"
@@ -174,12 +190,12 @@ step "nginx: проверка Let's Encrypt на :80, шлюз на :443"
 mkdir -p "$NGINX_INCLUDE_DIR" "$ACME_ROOT"
 # Сертификат на одно имя по HTTP-01: ни wildcard, ни API регистратора не нужны.
 cat > /etc/nginx/conf.d/nexus-dns-acme.conf <<EOF
-# nexus-dns: только проверка Let's Encrypt для $DNS_DOMAIN
+# nexus-dns: проверка Let's Encrypt для $DNS_DOMAIN, остальное — на https
 server {
     listen 80;
     server_name $DNS_DOMAIN;
     location /.well-known/acme-challenge/ { root $ACME_ROOT; }
-    location / { return 404; }
+    location / { return 301 https://\$host\$request_uri; }
 }
 EOF
 # stream {} живёт на верхнем уровне nginx.conf, не внутри http {}.
@@ -240,6 +256,9 @@ curl -fs -o /dev/null --max-time 5 -u "$AGH_USER:$AGH_PASSWORD" "$AGH_API/contro
     || die "AdGuard Home не пускает с паролем из $ENV_FILE (менял пароль в панели? впиши его в AGH_PASSWORD)"
 
 # ---------------------------------------------------------------------------
+mkdir -p "$AGH_DIR/userfilters" /var/lib/nexus-dns/site
+
+# ---------------------------------------------------------------------------
 step "команда nexus-dns"
 cat > /usr/local/bin/nexus-dns <<EOF
 #!/bin/sh
@@ -247,8 +266,16 @@ PYTHONPATH="$REPO_DIR" exec python3 -m nexusdns "\$@"
 EOF
 chmod 755 /usr/local/bin/nexus-dns
 
+step "собираю списки (российские правила, список для podkop)"
+nexus-dns lists build || echo "! списки не собрались (выше почему) — поставлю без них, соберёт таймер"
+
 step "применяю настройки и списки"
 nexus-dns apply
+
+step "автообновление раз в сутки"
+install -m 644 "$REPO_DIR/deploy/nexus-dns-update.service" "$REPO_DIR/deploy/nexus-dns-update.timer" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now nexus-dns-update.timer >/dev/null
 
 step "самопроверка снаружи"
 status_ok=1
@@ -261,11 +288,15 @@ cat <<EOF
 
   Всем один адрес — вписать один раз (Android: Частный DNS → Имя хоста):
       $DNS_DOMAIN
-  Остальные устройства и VPN:  nexus-dns howto
+  Страница с инструкцией для любого устройства (профиль iPhone, podkop):
+      https://$DNS_DOMAIN/
 
   Панель AdGuard Home (журнал запросов, статистика):
-      https://$DNS_DOMAIN/      логин: $AGH_USER   пароль: $AGH_PASSWORD
+      https://$DNS_DOMAIN/admin/      логин: $AGH_USER   пароль: $AGH_PASSWORD
       (пароль лежит в $ENV_FILE)
+
+  Раз в сутки сервер сам берёт обновления из main и свежие списки
+  (systemctl list-timers nexus-dns-update).
 
   После правки lists/:   nexus-dns apply
   Обновить всё:          cd $REPO_DIR && git pull && ./install.sh

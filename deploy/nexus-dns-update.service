@@ -1,0 +1,8 @@
+[Unit]
+Description=nexus-dns: обновление из репозитория, сборка списков, apply
+After=network-online.target AdGuardHome.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nexus-dns update

@@ -15,9 +15,12 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+import urllib.parse
+
 from . import dnswire
 from .config import Config
-from .lists import Lists
+from .lists import LISTS_DIR, Lists, read_domains
+from .site import MOBILECONFIG
 
 TIMEOUT = 8
 
@@ -106,7 +109,30 @@ def _try(title: str, fn, expect) -> Check:
     return Check(False, title, last)
 
 
-def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
+def https_get(ip: str, host: str, path: str) -> tuple[int, bytes]:
+    sock = _tls(ip, 443, host)
+    conn = http.client.HTTPSConnection(host, 443, timeout=TIMEOUT)
+    conn.sock = sock
+    try:
+        conn.request("GET", path)
+        resp = conn.getresponse()
+        return resp.status, resp.read()
+    finally:
+        conn.close()
+
+
+def protected_blocked(agh, root=LISTS_DIR) -> list[str]:
+    """Домены из lists/protect.txt, которые живые блок-листы всё-таки режут."""
+    bad = []
+    for host in read_domains(root / "protect.txt"):
+        r = agh.get("filtering/check_host?name=" + urllib.parse.quote(host)) or {}
+        if str(r.get("reason", "")).startswith("Filtered"):
+            rule = (r.get("rules") or [{}])[0].get("text", "")
+            bad.append(f"{host} ({rule})")
+    return bad
+
+
+def run(cfg: Config, lists: Lists, services: bool = True, agh=None) -> list[Check]:
     ip, host, path = cfg.public_ip, cfg.dns_domain, "/dns-query"
     checks: list[Check] = []
     if services:
@@ -147,6 +173,36 @@ def run(cfg: Config, lists: Lists, services: bool = True) -> list[Check]:
             return addrs in ([], ["0.0.0.0"]), f"{rcode} {', '.join(addrs) or 'пусто'}"
 
         checks.append(_try(f"реклама: {target} заблокирован", lambda: doh(ip, host, path, target), blocked))
+
+    def page(path: str, needle: bytes):
+        def fn():
+            return https_get(ip, host, path)
+
+        def ok(result):
+            status, body = result
+            return status == 200 and needle in body, f"HTTP {status}"
+
+        return fn, ok
+
+    for title, path, needle in (
+        ("сайт с инструкцией", "/", b"Nexus DNS"),
+        ("профиль iPhone", f"/{MOBILECONFIG}", cfg.doh_url.encode()),
+        ("панель на /admin/", "/admin/login.html", b"<html"),
+    ):
+        fn, ok = page(path, needle)
+        checks.append(_try(title, fn, ok))
+
+    if agh is not None:
+        # Исключение (@@) в чужом списке перебивает нашу строку в block.txt —
+        # молча. Ловим здесь, а не жалобой «реклама вернулась».
+        loose = [h for h in lists.block
+                 if not str((agh.get("filtering/check_host?name=" + urllib.parse.quote(h)) or {})
+                            .get("reason", "")).startswith("Filtered")]
+        checks.append(Check(not loose, "весь lists/block.txt блокируется",
+                            "да" if not loose else "перебиты исключением: " + ", ".join(loose[:5])))
+        bad = protected_blocked(agh)
+        checks.append(Check(not bad, "важные сайты не заблокированы (lists/protect.txt)",
+                            "все открываются" if not bad else "; ".join(bad[:5])))
 
     try:
         days = cert_days_left(ip, cfg.dns_domain)

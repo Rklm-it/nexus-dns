@@ -57,3 +57,35 @@ ad.mail.ru
 yabs.yandex.ru
 r.mradx.net
 ssp.rambler.ru
+
+# Майнеры криптовалют в браузере: чужой сайт грузит процессор и батарею
+coinhive-proxy.com
+coin-hive-proxy.com
+cryptoloot.org
+minero-proxy.com
+fastpool.xyz
+cpu.js.org
+
+# Сборщики ошибок сайтов: отчёты разработчикам, человеку не нужны
+api.honeybadger.io
+js.honeybadger.io
+notifier.airbrake.io
+
+# Реклама и видеореклама, которую основные списки пропускают
+aax-eu.amazon.com
+ads.dailymotion.com
+video-ads.twitter.com
+connatix.com
+pagead2.googlevideo.com
+fresnel.vimeocdn.com
+
+# Реклама браузера Vivo и телеметрия Windows
+ads-mas.vivobrowser.com
+ads-mas-us.vivobrowser.com
+settings-win.data.microsoft.com
+
+# SDK учёта установок в играх (Singular): кто откуда пришёл по рекламе.
+# app.adjust.com и cdn.taboola.com не берём: в AdGuard DNS filter на них
+# исключение (на app.adjust.com держатся ссылки из рекламы и писем в приложения).
+sdk.singular.net
+

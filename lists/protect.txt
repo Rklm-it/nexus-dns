@@ -1,0 +1,91 @@
+# Домены, которые не должны блокироваться никогда: банки, госуслуги, маркетплейсы,
+# соцсети, связь. На них опираются:
+#   - `nexus-dns lists build`: не переводит в блок их и их поддомены;
+#   - `nexus-dns status`: проверяет, что живые блок-листы их не задели (ложное
+#     срабатывание в чужом списке ловится в тот же день, а не жалобой).
+# Строка = домен со всеми поддоменами.
+
+# Яндекс, VK, Mail.ru, MAX
+ya.ru
+dzen.ru
+vk.com
+vk.ru
+vkvideo.ru
+userapi.com
+ok.ru
+mycdn.me
+max.ru
+oneme.ru
+e.mail.ru
+cloud.mail.ru
+
+# Маркетплейсы и доставка
+ozon.ru
+ozone.ru
+wildberries.ru
+wbbasket.ru
+avito.ru
+megamarket.ru
+kuper.ru
+samokat.ru
+lamoda.ru
+detmir.ru
+aliexpress.ru
+dns-shop.ru
+mvideo.ru
+eldorado.ru
+citilink.ru
+
+# Банки и платежи
+sberbank.ru
+sberbank.com
+online.sberbank.ru
+tbank.ru
+tinkoff.ru
+alfabank.ru
+vtb.ru
+gazprombank.ru
+raiffeisen.ru
+nspk.ru
+mir-platform.ru
+yoomoney.ru
+
+# Госсервисы
+gosuslugi.ru
+nalog.gov.ru
+mos.ru
+
+# Связь
+mts.ru
+megafon.ru
+beeline.ru
+tele2.ru
+t2.ru
+rt.ru
+
+# Видео, музыка, новости, сервисы
+rutube.ru
+kinopoisk.ru
+ivi.ru
+okko.tv
+wink.ru
+music.yandex.ru
+disk.yandex.ru
+market.yandex.ru
+taxi.yandex.ru
+2gis.ru
+hh.ru
+auto.ru
+drom.ru
+cian.ru
+rbc.ru
+lenta.ru
+ria.ru
+tass.ru
+pikabu.ru
+habr.com
+rustore.ru
+kaspersky.ru
+yastatic.net
+gstatic.com
+googleapis.com

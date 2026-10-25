@@ -47,6 +47,8 @@ def test_sync_filters_adds_and_removes_only_ours():
 
 def test_apply_full_and_repeatable(monkeypatch, tmp_path):
     monkeypatch.setattr(ap, "CERT_DIR", tmp_path)
+    monkeypatch.setattr(ap, "SITE_ROOT", tmp_path / "site")
+    monkeypatch.setattr(ap, "USERFILTERS", tmp_path / "uf")
     (tmp_path / "fullchain.pem").write_text("x")
     agh = FakeAGH()
     agh.user_rules = ["||mine.com^"]
@@ -71,32 +73,32 @@ def _runner(nginx_rc):
     return run, calls
 
 
-def test_write_nginx_restores_on_bad_config(tmp_path):
-    path = tmp_path / "stream.conf"
-    path.write_text("old")
+def test_write_nginx_restores_all_on_bad_config(tmp_path):
+    stream, site = tmp_path / "stream.conf", tmp_path / "site.conf"
+    stream.write_text("old")
     run, calls = _runner(nginx_rc=1)
     with pytest.raises(RuntimeError, match="boom"):
-        ap.write_nginx("new", path, run)
-    assert path.read_text() == "old"
+        ap.write_nginx({stream: "new", site: "new"}, run)
+    assert stream.read_text() == "old"
+    assert not site.exists()  # нового не было — и не остаётся
     assert ["systemctl", "reload", "nginx"] not in calls
-
-
-def test_write_nginx_removes_new_file_on_bad_config(tmp_path):
-    path = tmp_path / "sub" / "stream.conf"
-    run, _ = _runner(nginx_rc=1)
-    with pytest.raises(RuntimeError):
-        ap.write_nginx("new", path, run)
-    assert not path.exists()
 
 
 def test_write_nginx_skips_when_unchanged(tmp_path):
     path = tmp_path / "stream.conf"
     path.write_text("same")
     run, calls = _runner(nginx_rc=0)
-    assert ap.write_nginx("same", path, run) is False
+    assert ap.write_nginx({path: "same"}, run) is False
     assert calls == []
-    assert ap.write_nginx("other", path, run) is True
+    assert ap.write_nginx({path: "other"}, run) is True
     assert calls == [["nginx", "-t"], ["systemctl", "reload", "nginx"]]
+
+
+def test_local_filters_only_ours(tmp_path):
+    (tmp_path / "nexus-ru-thirdparty.txt").write_text("||x.ru^")
+    (tmp_path / "mine.txt").write_text("||y.ru^")
+    assert ap.local_filters(tmp_path) == [str(tmp_path / "nexus-ru-thirdparty.txt")]
+    assert ap.local_filters(tmp_path / "нет") == []
 
 
 def test_no_per_ip_ratelimit():

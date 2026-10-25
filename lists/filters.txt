@@ -18,3 +18,8 @@ https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/native.huaw
 # Госуслуги, маркетплейсы, VK, Яндекс, MAX) не задет ни один.
 https://easylist-downloads.adblockplus.org/advblock.txt
 https://easylist-downloads.adblockplus.org/cntblock.txt
+
+# Защита: фишинг, вредоносные программы, мошенничество, майнеры (HaGeZi TIF medium).
+# 564 тыс. доменов, +64 МБ памяти AdGuard Home; важные сайты (lists/protect.txt) не задевает.
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.medium.txt
+
