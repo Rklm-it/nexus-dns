@@ -60,6 +60,20 @@ claude.com
 anthropic.com
 claudeusercontent.com
 
+# Без этих служб приложения Claude и ChatGPT не стартуют (включатели функций,
+# отчёты, чат поддержки, вход, голос), а блок-листы режут их как трекеры. Правило
+# прокси перебивает блок (проверено на AdGuard Home). Список — как у владельца в
+# podkop, где Claude работал: телефон с нашим Частным DNS обходит podkop.
+statsigapi.net
+featuregates.org
+statsig.com
+sentry.io
+intercom.io
+intercomcdn.com
+auth0.com
+livekit.io
+openaiapi-site.azureedge.net
+
 # Copilot, Grok
 copilot.microsoft.com
 grok.com
