@@ -216,12 +216,11 @@ Gemini, ChatGPT и Claude открываются без VPN.</p>
 в VPN при любом DNS на телефоне:</li>
 </ol>
 <div class="addr"><code id="pkg">https://{domain}/podkop-google.txt</code><button data-copy="pkg">Копировать</button></div>
-<ol start="3">
-<li>Новая секция, тип подключения <b>Block</b> → «Внешние списки доменов» — реклама внутри
-VPN-списков podkop (Facebook, TikTok, YouTube, X…):</li>
-</ol>
+<p class="note">Необязательно, если podkop умеет вторую секцию (внизу «Секций» — имя и «Добавить»):
+секция с типом <b>Block</b> → «Внешние списки доменов» — реклама внутри VPN-списков podkop для
+устройств без «Частного DNS» (телевизор). Телефонам с этим адресом не нужно — режет сам DNS.</p>
 <div class="addr"><code id="pk">https://{domain}/podkop-block.txt</code><button data-copy="pk">Копировать</button></div>
-<p class="note">Оба списка обновляются сами.</p>
+<p class="note">Списки обновляются сами.</p>
 </section>
 
 <section class="card">
