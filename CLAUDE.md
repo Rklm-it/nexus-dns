@@ -67,9 +67,10 @@ Claude из РФ через SNI-прокси. Пока для семьи и др
     за `auth_basic` nginx; AdGuard Home принимает тот же заголовок Authorization, второй раз не
     спрашивает. Файл пароля — в `/etc/nginx/nexus-dns/` 640 root:www-data: из `/etc/nexus-dns` (700)
     воркер nginx его не прочтёт, и вместо панели будет 500.
-18. Свой «Частный DNS» на телефоне за роутером с podkop ломает podkop: телефон спрашивает наш DNS
+18. Свой «Частный DNS» на телефоне за роутером с podkop обходит podkop: телефон спрашивает наш DNS
     напрямую, podkop не видит имени и шлёт сайт мимо VPN. YouTube (в podkop только домены) — напрямую
-    и под ТСПУ; Telegram и Instagram живут (у podkop есть их подсети). Дома — «Автоматически».
+    и под ТСПУ; Telegram и Instagram живут (у podkop есть их подсети). Лечится не «переключай DNS
+    дома» (владелец: «один раз поставил и забыл»), а подсетями: `podkop-google.txt` (свои адреса
+    Google без Google Cloud) в «Внешние списки подсетей» — podkop кладёт их в nft-набор и ловит по IP.
     `s.youtube.com` режет RU AdList Counters — он в allow.txt, ключевые домены YouTube — в protect.txt
     точными адресами (родитель youtube.com там убрал бы ads.youtube.com из podkop-списка).
-

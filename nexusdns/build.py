@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
+import json
 import re
 import urllib.request
 import zipfile
@@ -54,8 +56,12 @@ PODKOP_LISTS = tuple(
     )
 )
 
+GOOG_JSON = "https://www.gstatic.com/ipranges/goog.json"
+CLOUD_JSON = "https://www.gstatic.com/ipranges/cloud.json"
+
 RU_FILTER_NAME = "nexus-ru-thirdparty.txt"
 PODKOP_FILE = "podkop-block.txt"
+PODKOP_GOOGLE = "podkop-google.txt"
 
 _THIRD_PARTY = re.compile(r"^\|\|([a-z0-9.-]+)\^\$third-party$")
 _HOST_RULE = re.compile(r"^(@@)?\|\|([a-z0-9.-]+)\^(\$important)?$")
@@ -139,6 +145,31 @@ def read_podkop(lines: Iterable[str]) -> set[str]:
     return out
 
 
+def google_subnets(goog: dict, cloud: dict) -> list[str]:
+    """Свои адреса Google (YouTube, Play, поиск) без Google Cloud.
+
+    Зачем: телефон со своим «Частным DNS» спрашивает наш DNS мимо podkop, и
+    podkop не узнаёт YouTube по имени — тот идёт мимо VPN под ТСПУ. По IP
+    podkop ловит трафик при любом DNS (так у него живут Telegram и Instagram).
+    Google Cloud вычитаем: там чужие сайты, им в VPN незачем.
+    """
+    own = [ipaddress.ip_network(p["ipv4Prefix"]) for p in goog.get("prefixes", []) if "ipv4Prefix" in p]
+    customers = [ipaddress.ip_network(p["ipv4Prefix"]) for p in cloud.get("prefixes", []) if "ipv4Prefix" in p]
+    out: list[ipaddress.IPv4Network] = []
+    for net in own:
+        parts = [net]
+        for c in customers:
+            nxt = []
+            for part in parts:
+                if c.subnet_of(part):
+                    nxt.extend(part.address_exclude(c))
+                elif not part.subnet_of(c):
+                    nxt.append(part)
+            parts = nxt
+        out.extend(parts)
+    return [str(n) for n in ipaddress.collapse_addresses(out)]
+
+
 def write_list(path: Path, header: str, domains: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -175,4 +206,14 @@ def build(userfilters: Path, site_root: Path, root: Path = LISTS_DIR) -> list[st
         pk,
     )
     log.append(f"podkop: {len(pk)} рекламных доменов внутри его VPN-списков ({site_root / PODKOP_FILE})")
+
+    nets = google_subnets(json.loads(fetch(GOOG_JSON)), json.loads(fetch(CLOUD_JSON)))
+    if len(nets) < 50:  # пустой или битый ответ Google — не затираем вчерашний список
+        raise RuntimeError(f"адресов Google подозрительно мало ({len(nets)}), список не обновлён")
+    write_list(
+        site_root / PODKOP_GOOGLE,
+        "# Nexus DNS: адреса Google и YouTube для podkop («Внешние списки подсетей»).\n",
+        nets,
+    )
+    log.append(f"podkop: {len(nets)} подсетей Google ({site_root / PODKOP_GOOGLE})")
     return log

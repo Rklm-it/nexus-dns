@@ -58,8 +58,10 @@ HOWTO = """\
   iPhone/Mac   https://{domain}/nexus-dns.mobileconfig → Настройки → Профиль загружен
   Браузер, Windows 11 (DoH):              {doh}
   Роутер:      DoT  tls://{domain}   или DoH-ссылка выше
-  Podkop:      DNS — DoT {domain}; секция с типом Block → «Внешние списки доменов» →
-               https://{domain}/podkop-block.txt  (реклама внутри VPN-списков podkop)
+  Podkop:      DNS — DoT {domain};
+               секция с VPN → «Внешние списки подсетей» → https://{domain}/podkop-google.txt
+               (YouTube в VPN при любом DNS на телефоне — Частный DNS дома трогать не надо);
+               секция с типом Block → «Внешние списки доменов» → https://{domain}/podkop-block.txt
 
 С VPN ничего менять не нужно: запросы к DNS идут внутри туннеля и доходят
 до сервера даже под белыми списками мобильного оператора.

@@ -56,3 +56,10 @@ def test_write_list_atomic(tmp_path):
     build.write_list(path, "# h\n", ["a.com", "b.com"])
     assert path.read_text() == "# h\na.com\nb.com\n"
     assert not path.with_suffix(".tmp").exists()
+
+
+def test_google_subnets_minus_cloud():
+    goog = {"prefixes": [{"ipv4Prefix": "10.0.0.0/16"}, {"ipv6Prefix": "2001::/32"}, {"ipv4Prefix": "10.1.0.0/24"}]}
+    cloud = {"prefixes": [{"ipv4Prefix": "10.0.128.0/17"}, {"ipv4Prefix": "10.1.0.0/24"}]}
+    # Google Cloud — чужие сайты, им в VPN незачем
+    assert build.google_subnets(goog, cloud) == ["10.0.0.0/17"]

@@ -209,14 +209,19 @@ Gemini, ChatGPT и Claude открываются без VPN.</p>
 
 <section class="card">
 <h2>Роутер с podkop (OpenWrt)</h2>
+<p>Один раз — и телефоны дома не трогать, даже с этим адресом в «Частном DNS».</p>
 <ol>
-<li>Podkop → «Настройки»: тип DNS — <b>DoT</b>, DNS-сервер — <code>{domain}</code>.</li>
-<li>Podkop → «Секции» → добавить секцию, тип подключения <b>Block</b> →
-«Внешние списки доменов»:</li>
+<li>«Настройки»: тип DNS — <b>DoT</b>, DNS-сервер — <code>{domain}</code>.</li>
+<li>Твоя секция с VPN → «Внешние списки подсетей» — адреса Google и YouTube, чтобы YouTube шёл
+в VPN при любом DNS на телефоне:</li>
+</ol>
+<div class="addr"><code id="pkg">https://{domain}/podkop-google.txt</code><button data-copy="pkg">Копировать</button></div>
+<ol start="3">
+<li>Новая секция, тип подключения <b>Block</b> → «Внешние списки доменов» — реклама внутри
+VPN-списков podkop (Facebook, TikTok, YouTube, X…):</li>
 </ol>
 <div class="addr"><code id="pk">https://{domain}/podkop-block.txt</code><button data-copy="pk">Копировать</button></div>
-<p class="note">Домены из VPN-списков podkop до DNS не доходят — этот список режет рекламу и в них
-(Facebook, TikTok, YouTube, X…). Обновляется сам.</p>
+<p class="note">Оба списка обновляются сами.</p>
 </section>
 
 <section class="card">

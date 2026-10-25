@@ -88,3 +88,7 @@ def test_htpasswd_same_credentials_as_panel(tmp_path):
     assert path.read_text() == "admin:{PLAIN}x\n"
     assert oct(path.stat().st_mode & 0o777) == "0o640"
     assert site.write_htpasswd(CFG, path) is False
+
+
+def test_index_offers_google_subnets_for_podkop():
+    assert "https://dns.example.com/podkop-google.txt" in site.index_html(CFG)
