@@ -116,3 +116,27 @@ def test_open_access_keeps_blacklist():
     ap.open_access(agh)
     assert agh.access == {"allowed_clients": [], "disallowed_clients": ["198.51.100.9"],
                           "blocked_hosts": ["version.bind"]}
+
+
+def test_selfcheck_waits_for_rules_reload(monkeypatch):
+    """block.txt, вставший через несколько секунд после apply, — не тревога
+    (на боевом сервере 25.10.2026: 564 тыс. правил TIF перечитывались, и
+    майнеры из block.txt «не блокировались» первые секунды)."""
+    from nexusdns import selfcheck
+
+    calls = {"n": 0}
+
+    class SlowAGH:
+        def get(self, path):
+            calls["n"] += 1
+            # первые два прохода — ещё старые правила
+            return {"reason": "FilteredBlackList" if calls["n"] > 2 * len(lists.block) else "NotFilteredNotFound"}
+
+    lists = Lists.load()
+    monkeypatch.setattr(selfcheck.time, "sleep", lambda s: None)
+    monkeypatch.setattr(selfcheck, "protected_blocked", lambda agh: [])
+    monkeypatch.setattr(selfcheck, "_try", lambda title, fn, expect: selfcheck.Check(True, title))
+    monkeypatch.setattr(selfcheck, "cert_days_left", lambda ip, sni: 60)
+    checks = selfcheck.run(CFG, lists, services=False, agh=SlowAGH())
+    blk = [c for c in checks if "block.txt" in c.title][0]
+    assert blk.ok, blk.detail

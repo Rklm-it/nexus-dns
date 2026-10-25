@@ -195,9 +195,16 @@ def run(cfg: Config, lists: Lists, services: bool = True, agh=None) -> list[Chec
     if agh is not None:
         # Исключение (@@) в чужом списке перебивает нашу строку в block.txt —
         # молча. Ловим здесь, а не жалобой «реклама вернулась».
-        loose = [h for h in lists.block
-                 if not str((agh.get("filtering/check_host?name=" + urllib.parse.quote(h)) or {})
-                            .get("reason", "")).startswith("Filtered")]
+        # Сразу после apply AdGuard Home ещё перечитывает списки (с TIF — секунды):
+        # новые строки не встали, и без ожидания это ложная тревога.
+        loose = lists.block
+        for attempt in range(8):
+            loose = [h for h in loose
+                     if not str((agh.get("filtering/check_host?name=" + urllib.parse.quote(h)) or {})
+                                .get("reason", "")).startswith("Filtered")]
+            if not loose:
+                break
+            time.sleep(3)
         checks.append(Check(not loose, "весь lists/block.txt блокируется",
                             "да" if not loose else "перебиты исключением: " + ", ".join(loose[:5])))
         bad = protected_blocked(agh)
