@@ -89,3 +89,15 @@ kaspersky.ru
 yastatic.net
 gstatic.com
 googleapis.com
+
+# YouTube и YouTube Kids — точные адреса, без родителя youtube.com: иначе
+# podkop-список потерял бы ads.youtube.com (protect исключает и поддомены)
+www.youtube.com
+m.youtube.com
+s.youtube.com
+youtubei.googleapis.com
+i.ytimg.com
+yt3.ggpht.com
+youtubekids.com
+www.youtubekids.com
+
