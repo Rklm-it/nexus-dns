@@ -13,7 +13,7 @@ from typing import Any, Callable
 from .agh import AGH, AGHError
 from .config import CERT_DIR, NGINX_CONF, NGINX_SITE_CONF, SITE_ROOT, USERFILTERS, Config
 from .lists import Lists, agh_rules, merge_user_rules, nginx_stream_conf
-from .site import nginx_site_conf, write_site
+from .site import nginx_site_conf, write_htpasswd, write_site
 
 FILTER_PREFIX = "nexus: "
 
@@ -200,6 +200,7 @@ def apply(cfg: Config, lists: Lists, agh: AGH, nginx: bool = True) -> list[str]:
         log.append(f"сайт: {', '.join(changed_site)}")
 
     if nginx:
+        write_htpasswd(cfg)
         changed = write_nginx({
             NGINX_CONF: nginx_stream_conf(lists, cfg.dns_domain),
             NGINX_SITE_CONF: nginx_site_conf(cfg, CERT_DIR, SITE_ROOT),

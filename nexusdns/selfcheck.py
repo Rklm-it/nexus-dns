@@ -187,10 +187,15 @@ def run(cfg: Config, lists: Lists, services: bool = True, agh=None) -> list[Chec
     for title, path, needle in (
         ("сайт с инструкцией", "/", b"Nexus DNS"),
         ("профиль iPhone", f"/{MOBILECONFIG}", cfg.doh_url.encode()),
-        ("панель на /admin/", "/admin/login.html", b"<html"),
     ):
         fn, ok = page(path, needle)
         checks.append(_try(title, fn, ok))
+
+    def closed(result):
+        status, _ = result
+        return status == 401, f"HTTP {status} без пароля"
+
+    checks.append(_try("панель /admin/ закрыта паролем", lambda: https_get(ip, host, "/admin/"), closed))
 
     if agh is not None:
         # Исключение (@@) в чужом списке перебивает нашу строку в block.txt —

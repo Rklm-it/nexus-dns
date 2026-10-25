@@ -10,6 +10,9 @@ ENV_FILE = Path(os.environ.get("NEXUS_DNS_ENV", "/etc/nexus-dns/nexus-dns.env"))
 NGINX_CONF = Path(os.environ.get("NEXUS_DNS_NGINX_CONF", "/etc/nginx/nexus-dns/stream.conf"))
 NGINX_SITE_CONF = Path(os.environ.get("NEXUS_DNS_NGINX_SITE", "/etc/nginx/conf.d/nexus-dns-site.conf"))
 CERT_DIR = Path("/etc/letsencrypt/live/nexus-dns")
+# Пароль на /admin/ для nginx. Не в /etc/nexus-dns (700, только root): воркер
+# nginx (www-data) его оттуда не прочтёт — 500 вместо панели.
+ADMIN_HTPASSWD = Path(os.environ.get("NEXUS_DNS_HTPASSWD", "/etc/nginx/nexus-dns/admin.htpasswd"))
 SITE_ROOT = Path(os.environ.get("NEXUS_DNS_SITE_ROOT", "/var/lib/nexus-dns/site"))
 # Локальные списки AdGuard Home берёт только отсюда (filtering.safe_fs_patterns).
 USERFILTERS = Path(os.environ.get("NEXUS_DNS_USERFILTERS", "/opt/AdGuardHome/userfilters"))

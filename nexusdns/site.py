@@ -8,10 +8,11 @@ DNS: страница для людей, DoH (дальше в AdGuard Home с н
 from __future__ import annotations
 
 import html
+import shutil
 import uuid
 from pathlib import Path
 
-from .config import Config
+from .config import ADMIN_HTPASSWD, Config
 from .lists import SITE_PORT
 
 MOBILECONFIG = "nexus-dns.mobileconfig"
@@ -57,7 +58,13 @@ server {{
     }}
 
     # Панель AdGuard Home: её пути относительные, поэтому живёт под /admin/.
+    # Пароль спрашивает nginx: форма входа на новом домене — повод для Chrome
+    # показать «Опасный сайт» (25.10.2026), а сканеры её перебирают. Тот же
+    # заголовок Authorization уходит в AdGuard Home, и второй раз он не спросит.
     location /admin/ {{
+        auth_basic "Nexus DNS";
+        auth_basic_user_file {htpasswd};
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass https://127.0.0.1:{doh_port}/;
         proxy_ssl_server_name on;
         proxy_ssl_name {domain};
@@ -78,8 +85,9 @@ server {{
 """
 
 
-def nginx_site_conf(cfg: Config, cert_dir: Path, site_root: Path) -> str:
+def nginx_site_conf(cfg: Config, cert_dir: Path, site_root: Path, htpasswd: Path = ADMIN_HTPASSWD) -> str:
     return SITE_CONF.format(
+        htpasswd=htpasswd,
         domain=cfg.dns_domain,
         site_port=SITE_PORT,
         cert=cert_dir,
@@ -239,6 +247,24 @@ def index_html(cfg: Config) -> str:
         doh=html.escape(cfg.doh_url),
         mobileconfig=MOBILECONFIG,
     )
+
+
+def write_htpasswd(cfg: Config, path: Path = ADMIN_HTPASSWD) -> bool:
+    """Логин и пароль панели для nginx — те же, что у AdGuard Home.
+
+    `{PLAIN}` nginx понимает сам; файл 640 root:www-data — читает только nginx.
+    """
+    body = f"{cfg.agh_user}:{{PLAIN}}{cfg.agh_password}\n"
+    if path.exists() and path.read_text(encoding="utf-8") == body:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    path.chmod(0o640)
+    try:
+        shutil.chown(path, "root", "www-data")
+    except (LookupError, PermissionError):
+        pass  # не сервер (тесты) — nginx тут нет
+    return True
 
 
 def write_site(cfg: Config, site_root: Path) -> list[str]:

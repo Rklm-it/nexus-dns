@@ -71,3 +71,20 @@ def test_nginx_accepts_stream_and_site_together(tmp_path):
     )
     r = subprocess.run(["nginx", "-t", "-c", str(main), "-p", str(tmp_path)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_admin_behind_nginx_password(tmp_path):
+    conf = site.nginx_site_conf(CFG, Path("/c"), Path("/s"), htpasswd=tmp_path / "p")
+    admin = conf[conf.index("location /admin/"):]
+    assert f"auth_basic_user_file {tmp_path / 'p'};" in admin.split("}")[0]
+    # DoH пароль не спрашивает
+    doh = conf[conf.index("location /dns-query"):].split("}")[0]
+    assert "auth_basic" not in doh
+
+
+def test_htpasswd_same_credentials_as_panel(tmp_path):
+    path = tmp_path / "admin.htpasswd"
+    assert site.write_htpasswd(CFG, path) is True
+    assert path.read_text() == "admin:{PLAIN}x\n"
+    assert oct(path.stat().st_mode & 0o777) == "0o640"
+    assert site.write_htpasswd(CFG, path) is False
